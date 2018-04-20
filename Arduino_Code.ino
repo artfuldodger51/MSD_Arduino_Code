@@ -36,8 +36,8 @@ const byte INPUT2 = 1;
 const byte OUTPUT1 = 2;
 const byte OUTPUT2 = 3;
 
-unsigned int count = 0;
-unsigned int tempCount = 0;
+unsigned int low_byte= 0;
+unsigned int high_byte = 0;
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -74,31 +74,29 @@ void loop() {
           {
 
             // Set OE to high to disable output, and set SEL to low to output the high byte
-            PORTC = (1<<1);
-            tempCount = 0;
-            count = 0;
-
-
+            PORTC = 0b00100000;
             // Clear OE bit which will enable the output
-            PORTC &= ~(1<<1);
+            delay(10);
+            
             // Read the output from the decoder into tempCount
-            tempCount = PINK;
-            count = 256*tempCount;
-
-            // Disable output again
-            PORTC = (1<<1);
+            high_byte = PINF;
+    
+          
             // Set the SEL bit high to read the low byte
-            PORTC |= (1<<0);
+            PORTC = 0b10100000;
+            delay(10);
+          
+            low_byte = PINF;
+
 
             // Clear OE to enable output
-            PORTC &= ~(1<<1);
-            tempCount = PINK;
-            count += tempCount;
-            
+            PORTC =0b11100000;
             Serial.write(START); //Send the start byte indicating the start of a package.
             Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(count); //Send the value read from Port F.
-            int checkSum1 = START + commandByte + input1; //Calculate the check sum.
+            Serial.write(low_byte); //Send the value read from Port F.
+            Serial.write(high_byte); //Send the value read from Port F.
+
+            int checkSum1 = START + commandByte + low_byte; //Calculate the check sum.
             Serial.write(checkSum1); //Send the check sum.
           }          
           break;
