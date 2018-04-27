@@ -36,8 +36,8 @@ const byte INPUT2 = 1;
 const byte OUTPUT1 = 2;
 const byte OUTPUT2 = 3;
 
-unsigned int low_byte= 0;
-unsigned int high_byte = 0;
+unsigned int count = 0;
+unsigned int tempCount = 0;
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -74,29 +74,31 @@ void loop() {
           {
 
             // Set OE to high to disable output, and set SEL to low to output the high byte
-            PORTC = 0b00100000;
-            // Clear OE bit which will enable the output
-            delay(10);
-            
-            // Read the output from the decoder into tempCount
-            high_byte = PINF;
-    
-          
-            // Set the SEL bit high to read the low byte
-            PORTC = 0b10100000;
-            delay(10);
-          
-            low_byte = PINF;
+            PORTC = (1<<1);
+            tempCount = 0;
+            count = 0;
 
+
+            // Clear OE bit which will enable the output
+            PORTC &= ~(1<<1);
+            // Read the output from the decoder into tempCount
+            tempCount = PINK;
+            count = 256*tempCount;
+
+            // Disable output again
+            PORTC = (1<<1);
+            // Set the SEL bit high to read the low byte
+            PORTC |= (1<<0);
 
             // Clear OE to enable output
-            PORTC =0b11100000;
+            PORTC &= ~(1<<1);
+            tempCount = PINK;
+            count += tempCount;
+            
             Serial.write(START); //Send the start byte indicating the start of a package.
             Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(low_byte); //Send the value read from Port F.
-            Serial.write(high_byte); //Send the value read from Port F.
-
-            int checkSum1 = START + commandByte + low_byte; //Calculate the check sum.
+            Serial.write(count); //Send the value read from Port F.
+            int checkSum1 = START + commandByte + input1; //Calculate the check sum.
             Serial.write(checkSum1); //Send the check sum.
           }          
           break;
@@ -114,6 +116,14 @@ void loop() {
           case OUTPUT1: //For Output 1 the value of the data byte is written to Port A.
           {
             output1 = dataByte;    //The value of the data byte is stored in variable output 1, this step is redundant as the value could be written directly to the port.       
+            if( output1 < 150 & output1 > 127)
+            {
+              output1 = 150;
+            }
+            else if ( output1 < 127 & output1 > 107)
+            {
+              output1 = 107;
+            }
             PORTA = output1;       //However keeping the data in a variable could prove useful if further processing was done on the arduino side.
   
           } 
@@ -128,15 +138,6 @@ void loop() {
       }
     }    
   }
-if (input2 is different)
-    PORTC =0b11100000;
-            Serial.write(START); //Send the start byte indicating the start of a package.
-            Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(low_byte); //Send the value read from Port F.
-            Serial.write(high_byte); //Send the value read from Port F.
-
-            int checkSum1 = START + commandByte + low_byte; //Calculate the check sum.
-            Serial.write(checkSum1); //Send the check sum.
 }
 
 //Function to reverse the order of the bits.
