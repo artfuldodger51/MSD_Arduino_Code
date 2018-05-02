@@ -12,17 +12,19 @@
 // The check sum allows for confirmation that the correct four bytes have been received as a message. This is useful as it 
 // confirm that the end of the message has been reached and that no bytes were lost during the transmission.
 
-//Declare variables for storing the port values. 
-byte output1 = 255;
-byte output2 = 255;
-byte input1 = 0;
-byte input2 = 0;
+void encoderRead(void);
+void encoderSend(void);
+
 
 //Declare variables for each byte of the message.
 byte startByte = 0;
 byte commandByte = 0;
-byte dataByte = 0;
+byte ADCByte = 0;
 byte checkByte = 0;
+
+// Declare constants for input mode
+const byte HTCLRST  = 0;
+const byte ADC      = 1;
 
 //Declare variable for calculating the check sum which is used to confirm that the correct bytes were identified as the four message bytes.
 byte checkSum = 0;
@@ -30,14 +32,10 @@ byte checkSum = 0;
 //Declare a constant for the start byte ensuring that the value is static.
 const byte START = 255;
 
-//Declare constants to enumerate the port values.
-const byte INPUT1 = 0;
-const byte INPUT2 = 1;
-const byte OUTPUT1 = 2;
-const byte OUTPUT2 = 3;
-
 unsigned int low_byte= 0;
 unsigned int high_byte = 0;
+
+const byte RSTPIN = 5;
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -60,95 +58,76 @@ void loop() {
     {
       //Read the remaining three bytes of the package into the respective variables.
       commandByte = Serial.read();
-      dataByte = Serial.read();
+      ADCByte = Serial.read();
       checkByte = Serial.read();
 
-      checkSum = startByte + commandByte + dataByte; // Calculate the check sum, this is also calculated in visual studio and is sent as he final byte of the package.
+      checkSum = startByte + commandByte + dataByte; // Calculate the check sum, this is also calculated
+                                                     // in visual studio and is sent as he final byte of the package.
 
       if(checkByte == checkSum) //Confirm that the calculated and sent check sum match, if so it is safe to process the data.
       {
-        //Check the command byte to determine which port is being called and respond accordingly.           
+
         switch(commandByte)
         {
-          case INPUT1: //In the case of Input 1 the value is read from Port F and sent back in the same four byte package format.
-          {
-
-            // Set OE to high to disable output, and set SEL to low to output the high byte
-            PORTC = 0b00100000;
-            // Clear OE bit which will enable the output
-            delay(10);
-            
-            // Read the output from the decoder into tempCount
-            high_byte = PINF;
-    
-          
-            // Set the SEL bit high to read the low byte
-            PORTC = 0b10100000;
-            delay(10);
-          
-            low_byte = PINF;
-
-
-            // Clear OE to enable output
-            PORTC =0b11100000;
-            Serial.write(START); //Send the start byte indicating the start of a package.
-            Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(low_byte); //Send the value read from Port F.
-            Serial.write(high_byte); //Send the value read from Port F.
-
-            int checkSum1 = START + commandByte + low_byte; //Calculate the check sum.
-            Serial.write(checkSum1); //Send the check sum.
-          }          
-          break;
-          case INPUT2: //Input 2 is the same as Input 1, but read from Port
-          {
-            input2 = PINK; //Read Port K.
-            
-            Serial.write(START); //Send the start byte indicating the start of a package.
-            Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(input2); //Send the value read from Port K.
-            int checkSum2 = START + commandByte + input2; //Calculate the check sum.
-            Serial.write(checkSum2); //Send the check sum.
-          }               
-          break;
-          case OUTPUT1: //For Output 1 the value of the data byte is written to Port A.
-          {
-            output1 = dataByte;    //The value of the data byte is stored in variable output 1, this step is redundant as the value could be written directly to the port.       
-            PORTA = output1;       //However keeping the data in a variable could prove useful if further processing was done on the arduino side.
-  
-          } 
-          break;
-          case OUTPUT2: //For Output 1 the value of the data byte is written to Port C.
-          {
-            output2 = bitFlip(dataByte);  //This output is flipped to keep the orientation of the outputs the same on the IO card LED display.
-            PORTC = output2;   //Write the flipped value to port C.
-          }         
+          case HTCLRST:
+            PORTC |= (1<<RSTPIN);
+            break;
+          case ADC:
+            PORTA = ADCByte;       // Output byte to ADC
           break;
         }
+        
       }
+      
     }    
   }
-if (input2 is different)
-    PORTC =0b11100000;
-            Serial.write(START); //Send the start byte indicating the start of a package.
-            Serial.write(commandByte); //Echo the command byte to inform Visual Studio which port value is being sent.
-            Serial.write(low_byte); //Send the value read from Port F.
-            Serial.write(high_byte); //Send the value read from Port F.
+  decoderRead();
+  decoderSend();
+}
 
-            int checkSum1 = START + commandByte + low_byte; //Calculate the check sum.
-            Serial.write(checkSum1); //Send the check sum.
+void decoderRead(void)
+{
+
+  // Set OE to high to disable output, and set SEL to low to output the high byte
+  PORTC = 0b00100000;
+  // Clear OE bit which will enable the output
+  delay(10);
+
+  // Read the output from the decoder into tempCount
+  high_byte = PINF;
+
+  // Set the SEL bit high to read the low byte
+  PORTC = 0b10100000;
+  delay(10);
+
+  low_byte = PINF;
+
+  // Clear OE to enable output
+  PORTC =0b11100000;
+
+}
+
+void decoderSend(void)
+{
+  Serial.write(START); //Send the start byte indicating the start of a package.
+  Serial.write(low_byte); //Send the value read from Port F.
+  Serial.write(high_byte); //Send the value read from Port F.
+
+  int checkSum1 = START + low_byte + high_byte; //Calculate the check sum.
+  Serial.write(checkSum1); //Send the check sum.
 }
 
 //Function to reverse the order of the bits.
 byte bitFlip(byte value)
 {
-       byte bFlip = 0;
-       byte j=7;
-       for (byte i=0; i<8; i++) { 
-         bitWrite(bFlip, i, bitRead(value, j));
-         j--;
-       }
-       return bFlip;
+  byte bFlip = 0;
+  byte j=7;
+  for (byte i=0; i<8; i++)
+  { 
+    bitWrite(bFlip, i, bitRead(value, j));
+    j--;
+  }
+  return bFlip;
 }
 
 
