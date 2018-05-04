@@ -23,8 +23,8 @@ byte ADCByte = 0;
 byte checkByte = 0;
 
 // Declare constants for input mode
-const byte HTCLRST  = 0;
-const byte ADC      = 1;
+#define HTCLRST  0
+#define ADC   1
 
 //Declare variable for calculating the check sum which is used to confirm that the correct bytes were identified as the four message bytes.
 byte checkSum = 0;
@@ -61,7 +61,7 @@ void loop() {
       ADCByte = Serial.read();
       checkByte = Serial.read();
 
-      checkSum = startByte + commandByte + dataByte; // Calculate the check sum, this is also calculated
+      checkSum = startByte + ADCByte + commandByte; // Calculate the check sum, this is also calculated
                                                      // in visual studio and is sent as he final byte of the package.
 
       if(checkByte == checkSum) //Confirm that the calculated and sent check sum match, if so it is safe to process the data.
