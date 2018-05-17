@@ -13,7 +13,7 @@
 // confirm that the end of the message has been reached and that no bytes were lost during the transmission.
 
 void encoderRead(void);
-void encoderSend(void);
+void encoderSend(byte, byte);
 
 
 //Declare variables for each byte of the message.
@@ -25,6 +25,7 @@ byte checkByte = 0;
 // Declare constants for input mode
 #define HTCLRST  0
 #define ADC   1
+#define deadband 2
 
 //Declare variable for calculating the check sum which is used to confirm that the correct bytes were identified as the four message bytes.
 byte checkSum = 0;
@@ -36,6 +37,12 @@ unsigned int low_byte= 0;
 unsigned int high_byte = 0;
 
 const byte RSTPIN = 5;
+
+bool rising = false;
+
+byte dead_upper = 0;
+byte dead_lower = 0;
+byte dead_low = 0;
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -75,6 +82,40 @@ void loop() {
           case ADC:
             PORTA = ADCByte;       // Output byte to ADC
           break;
+		  case deadband:
+			PORTA = 127;
+			rising = true;
+			while(rising == true)
+			{
+				PORTA++;
+				delay(100);
+				dead_low = decoderRead();
+				if (dead_low > prev_low_byte)
+				{
+					rising = false;
+					falling = true;
+					dead_upper = PORTA;
+					PORTA = 127;
+					
+				}
+				prev_low_byte = dead_low;
+				
+			}
+			
+			while (falling == true)
+			{
+				PORTA--
+				delay(100);
+				dead_low = decoderRead();
+				if (dead_low > prev_low_byte)
+				{
+					falling = false;
+					dead_lower = PORTA;
+					PORTA = 127;
+				}
+				prev_low_byte = dead_low;
+			}
+			decoderSend(dead_upper, dead_lower);
         }
         
       }
@@ -82,10 +123,10 @@ void loop() {
     }    
   }
   decoderRead();
-  decoderSend();
+  decoderSend(low_byte, high_byte);
 }
 
-void decoderRead(void)
+byte decoderRead(void)
 {
 
   // Set OE to high to disable output, and set SEL to low to output the high byte
@@ -104,14 +145,15 @@ void decoderRead(void)
 
   // Clear OE to enable output
   PORTC =0b11100000;
+  return low_byte;
 
 }
 
-void decoderSend(void)
+void decoderSend(byte low_b, byte high_b)
 {
   Serial.write(START); //Send the start byte indicating the start of a package.
-  Serial.write(low_byte); //Send the value read from Port F.
-  Serial.write(high_byte); //Send the value read from Port F.
+  Serial.write(low_b); //Send the value read from Port F.
+  Serial.write(high_b); //Send the value read from Port F.
 
   int checkSum1 = START + low_byte + high_byte; //Calculate the check sum.
   Serial.write(checkSum1); //Send the check sum.
