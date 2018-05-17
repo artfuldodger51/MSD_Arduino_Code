@@ -25,7 +25,10 @@ byte checkByte = 0;
 // Declare constants for input mode
 #define HTCLRST  0
 #define ADC   1
-#define deadband 2
+#define sendDecode 2
+#define deadband_tune 3
+#define deadband_remove 4
+
 
 //Declare variable for calculating the check sum which is used to confirm that the correct bytes were identified as the four message bytes.
 byte checkSum = 0;
@@ -43,6 +46,7 @@ bool rising = false;
 byte dead_upper = 0;
 byte dead_lower = 0;
 byte dead_low = 0;
+byte controlAction = 0;
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -79,10 +83,37 @@ void loop() {
           case HTCLRST:
             PORTC |= (1<<RSTPIN);
             break;
+			
           case ADC:
-            PORTA = ADCByte;       // Output byte to ADC
+			if (remove)
+			{
+				if (ADCByte < dead_upper && ADCByte > 127)
+				{
+					controlAction = dead_upper;
+				}
+				else if (ADCByte > dead_lower && ADCByte < 127)
+				{
+					controlAction = dead_lower;
+				}
+				else
+				{
+					controlAction = ADCByte;
+				}	
+			}
+			else
+			{
+				controlAction = ADCByte;
+			}
+			
+            PORTA = controlAction;       // Output byte to ADC
           break;
-		  case deadband:
+		  
+		  case sendDecode:
+		    decoderRead();
+			decoderSend(low_byte, high_byte);
+			break;
+			
+		  case deadband_tune:
 			PORTA = 127;
 			rising = true;
 			while(rising == true)
@@ -107,7 +138,7 @@ void loop() {
 				PORTA--
 				delay(100);
 				dead_low = decoderRead();
-				if (dead_low > prev_low_byte)
+				if (dead_low < prev_low_byte)
 				{
 					falling = false;
 					dead_lower = PORTA;
@@ -115,15 +146,19 @@ void loop() {
 				}
 				prev_low_byte = dead_low;
 			}
-			decoderSend(dead_upper, dead_lower);
+			decoderSend(69, 69);
+			break;
+			
+		  case deadband_remove:
+			remove = !remove;
+			break;
         }
         
       }
       
     }    
   }
-  decoderRead();
-  decoderSend(low_byte, high_byte);
+
 }
 
 byte decoderRead(void)
