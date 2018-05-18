@@ -42,11 +42,15 @@ unsigned int high_byte = 0;
 const byte RSTPIN = 5;
 
 bool rising = false;
+bool falling = false;
+bool removed = false;
 
 byte dead_upper = 0;
 byte dead_lower = 0;
 byte dead_low = 0;
 byte controlAction = 0;
+byte prev_low_byte = 0;
+
 
 //Setup initialises pins as inputs or outputs and begins the bluetooth serial.
 void setup() {
@@ -85,75 +89,80 @@ void loop() {
             break;
 			
           case ADC:
-			if (remove)
-			{
-				if (ADCByte < dead_upper && ADCByte > 127)
-				{
-					controlAction = dead_upper;
-				}
-				else if (ADCByte > dead_lower && ADCByte < 127)
-				{
-					controlAction = dead_lower;
-				}
-				else
-				{
-					controlAction = ADCByte;
-				}	
-			}
-			else
-			{
-				controlAction = ADCByte;
-			}
+        			if (removed)
+        			{
+          				if (ADCByte < dead_upper && ADCByte > 127)
+          				{
+          					controlAction = dead_upper;
+          				}
+          				else if (ADCByte > dead_lower && ADCByte < 127)
+          				{
+          					controlAction = dead_lower;
+          				}
+          				else
+          				{
+          					controlAction = ADCByte;
+          				}	
+        			}
+        			else
+        			{
+        				controlAction = ADCByte;
+        			}
 			
             PORTA = controlAction;       // Output byte to ADC
           break;
 		  
-		  case sendDecode:
-		    decoderRead();
-			decoderSend(low_byte, high_byte);
-			break;
+		      case sendDecode:
+    		      decoderRead();
+    			decoderSend(low_byte, high_byte);
+    			break;
 			
-		  case deadband_tune:
-			PORTA = 127;
-			rising = true;
-			while(rising == true)
-			{
-				PORTA++;
-				delay(100);
-				dead_low = decoderRead();
-				if (dead_low > prev_low_byte)
-				{
-					rising = false;
-					falling = true;
-					dead_upper = PORTA;
-					PORTA = 127;
-					
-				}
-				prev_low_byte = dead_low;
-				
-			}
-			
-			while (falling == true)
-			{
-				PORTA--
-				delay(100);
-				dead_low = decoderRead();
-				if (dead_low < prev_low_byte)
-				{
-					falling = false;
-					dead_lower = PORTA;
-					PORTA = 127;
-				}
-				prev_low_byte = dead_low;
-			}
-			decoderSend(69, 69);
-			break;
-			
-		  case deadband_remove:
-			remove = !remove;
-			break;
-        }
-        
+    		  case deadband_tune:
+    			  PORTA = 127;
+            dead_low = decoderRead();
+            prev_low_byte = dead_low;
+    			  rising = true;
+      			while(rising == true)
+      			{
+        				PORTA++;
+        				delay(100);
+        				dead_low = decoderRead();
+        				if (dead_low < prev_low_byte)
+        				{
+          					rising = false;
+          					falling = true;
+          					dead_upper = PORTA;
+          					PORTA = 127;
+        					
+        				}
+        				prev_low_byte = dead_low;
+      				
+      			}
+
+            dead_low = decoderRead();
+            prev_low_byte = dead_low;
+            
+      			while (falling == true)
+      			{
+        				PORTA--;
+        				delay(100);
+        				dead_low = decoderRead();
+        				if (dead_low > prev_low_byte)
+        				{
+          					falling = false;
+          					dead_lower = PORTA;
+          					PORTA = 127;
+        				}
+        				prev_low_byte = dead_low;
+      			}
+      			decoderSend(69, 69);
+    			  break;
+    			
+    		  case deadband_remove:
+    			    removed = !removed;
+    			break;
+            }
+            
       }
       
     }    
